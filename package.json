@@ -1,0 +1,25 @@
+{
+  "name": "pi-codebase-memory-mcp",
+  "version": "0.1.0",
+  "description": "Pi extension package for codebase-memory-mcp tools",
+  "keywords": ["pi-package", "pi", "mcp", "codebase-memory"],
+  "license": "MIT",
+  "author": "bombman",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bombman/pi-codebase-memory-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bombman/pi-codebase-memory-mcp/issues"
+  },
+  "homepage": "https://github.com/bombman/pi-codebase-memory-mcp#readme",
+  "type": "module",
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "typebox": "*"
+  }
+}
