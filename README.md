@@ -1,6 +1,6 @@
 # pi-codebase-memory-mcp
 
-A [pi](https://github.com/earendil-works/pi-mono) package that exposes [`codebase-memory-mcp`](https://github.com/bombman/codebase-memory-mcp) as native pi tools.
+A [pi](https://github.com/earendil-works/pi-mono) package that exposes [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) as native pi tools.
 
 This package is useful when you want pi to query a code knowledge graph for architecture discovery, symbol search, call tracing, graph queries, and code snippets.
 
