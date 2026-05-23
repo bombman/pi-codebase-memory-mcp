@@ -67,8 +67,8 @@ function progressFromStderr(line: string): string | null {
   // Skip noise
   if (msg === "mem.init" || msg === "pipeline.err" || level === "debug") return null;
 
-  // Only show pipeline milestones + errors
-  if (!msg.startsWith("pipeline.") && level !== "error" && msg !== "pipeline.err") return null;
+  // Show pipeline + incremental milestones + errors
+  if (!msg.startsWith("pipeline.") && !msg.startsWith("incremental.") && level !== "error") return null;
 
   // Format key=value pairs nicely
   const formatted = rest
