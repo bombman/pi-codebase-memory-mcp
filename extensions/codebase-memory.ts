@@ -260,13 +260,6 @@ const tools: ToolSpec[] = [
     parameters: Type.Object({ project, scope: Type.Optional(Type.String()), depth: Type.Optional(Type.Integer()), base_branch: Type.Optional(Type.String()), since: Type.Optional(Type.String()) }),
   },
   {
-    name: "manage_adr",
-    label: "Codebase Memory: Manage ADR",
-    description: "Create, get, update, or list Architecture Decision Record sections.",
-    promptSnippet: "Manage architecture decision records for an indexed project",
-    parameters: Type.Object({ project, mode: Type.Optional(StringEnum(["get", "update", "sections"] as const)), content: Type.Optional(Type.String()), sections: Type.Optional(Type.Array(Type.String())) }),
-  },
-  {
     name: "ingest_traces",
     label: "Codebase Memory: Ingest Traces",
     description: "Ingest runtime traces to enhance the knowledge graph.",
@@ -303,6 +296,78 @@ export default function (pi: ExtensionAPI) {
       },
     });
   }
+
+  /* ── manage_adr: custom handler with append-on-update ──────────── */
+  // The underlying cbm_store_adr_store in the Go binary uses INSERT...ON CONFLICT DO UPDATE,
+  // which completely replaces the ADR content on every "update" call.
+  // We fix this at the wrapper layer:
+  //   - mode="update": read existing content first, append new content, then store combined
+  //   - mode="get" / mode="sections": pass through directly
+  pi.registerTool({
+    name: `${TOOL_PREFIX}manage_adr`,
+    label: "Codebase Memory: Manage ADR",
+    description: "Create, get, update, or list Architecture Decision Record sections.",
+    promptSnippet: "Manage architecture decision records for an indexed project",
+    promptGuidelines: [
+      "Use cmem_list_projects to discover the correct project name before using other cmem_* tools when the project is unknown.",
+      "Use cmem_search_graph for code definitions, relationships, callers, implementations, and architecture discovery before falling back to grep.",
+    ],
+    parameters: Type.Object({ project, mode: Type.Optional(StringEnum(["get", "update", "sections"] as const)), content: Type.Optional(Type.String()), sections: Type.Optional(Type.Array(Type.String())) }),
+    async execute(_toolCallId, params, signal, onUpdate) {
+      const p = params as { project: string; mode?: string; content?: string; sections?: string[] };
+
+      if (p.mode === "update" && p.content) {
+        // Step 1: Read existing ADR
+        onUpdate?.({ content: [{ type: "text", text: "Reading existing ADR..." }] });
+        const existingResult = await runCli("manage_adr", { project: p.project, mode: "get" }, signal, onUpdate);
+
+        let existingContent = "";
+        if (!existingResult.isError && existingResult.content) {
+          const raw = existingResult.content.map(c => c.text).join("\n");
+          try {
+            const parsed = JSON.parse(raw);
+            existingContent = parsed.content || "";
+          } catch {
+            existingContent = raw;
+          }
+        }
+
+        // Step 2: Append new content to existing (avoid duplicate blank-line gaps)
+        const combined = existingContent.trim()
+          ? existingContent.trimEnd() + "\n\n\n" + p.content.trimStart()
+          : p.content;
+
+        onUpdate?.({ content: [{ type: "text", text: `Appending to existing ADR (${existingContent.trim() ? (existingContent.length + " chars existing + " + p.content.length + " chars new") : "no existing ADR, creating fresh"})...` }] });
+
+        // Step 3: Store combined content
+        const storeResult = await runCli("manage_adr", { project: p.project, mode: "update", content: combined }, signal, onUpdate);
+        const text = truncateText(textFromResult(storeResult));
+
+        if (storeResult.isError) {
+          throw new Error(text || "manage_adr update failed");
+        }
+
+        return {
+          content: [{ type: "text", text }],
+          details: { tool: "manage_adr", command: COMMAND, raw: storeResult, appended: true, existing_length: existingContent.length, new_length: p.content.length },
+        };
+      }
+
+      // For get / sections / update-without-content: pass through directly
+      onUpdate?.({ content: [{ type: "text", text: `Running ${COMMAND} cli manage_adr ...` }] });
+      const result = await runCli("manage_adr", params, signal, onUpdate);
+      const text = truncateText(textFromResult(result));
+
+      if (result.isError) {
+        throw new Error(text || "manage_adr failed");
+      }
+
+      return {
+        content: [{ type: "text", text }],
+        details: { tool: "manage_adr", command: COMMAND, raw: result },
+      };
+    },
+  });
 
   pi.registerCommand("cmem-projects", {
     description: "List codebase-memory-mcp indexed projects",
