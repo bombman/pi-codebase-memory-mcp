@@ -2,12 +2,12 @@
 
 A [pi](https://github.com/earendil-works/pi-mono) package that exposes [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) as native pi tools.
 
-This package has two complementary parts:
+This package has two parts:
 
 - **Extensions** — Register all `codebase-memory-mcp` tools with the `cmem_` prefix so pi can call them directly.
 - **Skills** — A codebase navigation protocol skill that enforces strict `cmem_*` tool usage and blocks fallback to grep/read.
 
-You can use **extensions alone** for tool access without workflow enforcement, or **both together** for maximum benefit.
+You can use **extensions alone** (tools without workflow enforcement). The skill cannot work without the extensions — it only teaches the agent *how* to use the tools, it doesn't provide them. Install both for maximum benefit.
 
 ## Features
 
@@ -34,10 +34,9 @@ export CODEBASE_MEMORY_MCP_COMMAND=/path/to/codebase-memory-mcp
 
 ## Installation
 
-The package installs both **extensions** (tools) and **skills** (navigation protocol).
-You can use either one independently, or both together.
+> **Important:** The skill (`cmem_*` enforcement, `/adr`, `/impact`, `/explain`) **requires the extensions** to function — the skill only teaches the agent *how* to use the tools, but the tools themselves come from the extensions. Install both together.
 
-### Full install (extensions + skills, recommended)
+### Recommended: full install (extensions + skills)
 
 ```bash
 git clone https://github.com/bombman/pi-codebase-memory-mcp.git
@@ -47,34 +46,19 @@ pi install .
 
 After installing, restart pi or run `/reload`.
 
-### Extensions only (just the tools, no skill enforcement)
+### Extensions only (without skill enforcement)
 
-The extensions register `cmem_*` tools. If you don't want the skill's strict workflow enforcement, install the package and ignore the skill, or install project-locally:
+If you want the `cmem_*` tools without the skill's strict workflow rules, install project-locally or disable skills globally:
 
 ```bash
 pi install -l .
 ```
 
-You can also disable skills globally in pi settings:
-
+To disable skills globally in pi settings:
 ```json
 {
   "noSkills": true
 }
-```
-
-### Skills only (without the extension package)
-
-If you only want the codebase navigation protocol without the `cmem_*` tools (e.g. using the MCP server directly), copy the skill to your project:
-
-```bash
-cp skills/pi-codebase-memory-skills.md /path/to/project/.pi/skills/
-```
-
-Or install from GitHub:
-
-```bash
-pi install https://github.com/bombman/pi-codebase-memory-mcp
 ```
 
 Then pin a tag/commit:
