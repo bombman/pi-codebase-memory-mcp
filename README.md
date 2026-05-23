@@ -11,7 +11,6 @@ This package is useful when you want pi to query a code knowledge graph for arch
 - No MCP client support is required in pi.
 - Can be installed globally, per project, from a local checkout, npm, or GitHub.
 - **Progress streaming** — Live pipeline progress shown in pi UI during long operations like `cmem_index_repository`.
-- **Custom file extensions** — `cmem_index_repository` accepts `file_extensions` parameter (e.g. `[".astro"]`) to index non-default source files.
 
 ## Requirements
 
@@ -150,6 +149,29 @@ codebase-memory-mcp cli <tool> '<json-args>'
 ```
 
 The result is normalized and returned to pi as a native tool result.
+
+## Custom file extensions
+
+To index file types not natively supported (e.g. `.astro`, `.blade.php`), create a **JSON config file** at the project root before running `cmem_index_repository`:
+
+```json
+// .codebase-memory.json (at repository root)
+{"extra_extensions": {".astro": "html"}}
+```
+
+Then delete the old index and re-index:
+
+```
+cmem_delete_project(project="project-name")
+cmem_index_repository(repo_path="/path/to/repo")
+```
+
+> **Note:** The extended extension must map to a language the parser already supports (see binary `--help` for language list).
+> Common mappings: `.astro` → `html`, `.blade.php` → `php`, `.mjml` → `html`.
+
+There is also a **global** config file at `~/.config/codebase-memory-mcp/config.json` with the same format — project config wins over global.
+
+The `cmem_index_repository` tool does **not** accept a `file_extensions` parameter; configure extension mappings only through the JSON config file above.
 
 ## Development
 
