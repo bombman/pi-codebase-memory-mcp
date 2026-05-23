@@ -30,11 +30,14 @@ At the very beginning of your final text response (after you have finished gathe
 Execute these short commands automatically without asking for further instructions:
 - `/adr [topic]`: Analyze recent changes and append to `.codebase-memory/adr.md` using this exact format:
   ### [YYYY-MM-DD] [Topic Name]
-  - **Status:** Accepted
+  - **Status:** Active
   - **Context:** [1-2 sentences explaining why]
   - **Decision:** [What was implemented]
   - **Consequences:** [New constraints or technical debts]
 
+- `/adrs`: Run `cmem_manage_adr(mode="active")` to list only **Active** ADR entries (saves tokens vs loading full history).
+- `/adr-all`: Run `cmem_manage_adr(mode="get")` to see the complete ADR history including archived entries.
+- `/archive [section-title]`: Run `cmem_manage_adr(mode="archive", sections=["..."])` to mark an ADR entry as Completed.
 - `/impact [target]`: Run `cmem_trace_path` to analyze what happens if we change [target] and summarize the blast radius.
 - `/explain [target]`: Use `cmem_search_graph` and `cmem_search_code` to read and explain the logic of [target].
 

@@ -133,6 +133,38 @@ function runCli(toolName: string, params: unknown, signal?: AbortSignal, onUpdat
   });
 }
 
+/* ── Parse ADR markdown into header/body/status entries ────────── */
+function parseAdrEntries(content: string): Array<{ header: string; body: string; status: string }> {
+  const entries: Array<{ header: string; body: string; status: string }> = [];
+  const lines = content.split("\n");
+  let currentHeader = "";
+  let currentBody: string[] = [];
+  let currentStatus = "Active";
+
+  for (const line of lines) {
+    const headerMatch = line.match(/^###\s+\d{4}-\d{2}-\d{2}\s+(.+)/);
+    if (headerMatch) {
+      if (currentHeader) {
+        entries.push({ header: currentHeader, body: currentBody.join("\n"), status: currentStatus });
+      }
+      currentHeader = line;
+      currentBody = [];
+      currentStatus = "Active";
+    } else {
+      const statusMatch = line.match(/-\s+\*\*Status:\*\*\s+(.+)/);
+      if (statusMatch) {
+        currentStatus = statusMatch[1].trim();
+      }
+      currentBody.push(line);
+    }
+  }
+  if (currentHeader) {
+    entries.push({ header: currentHeader, body: currentBody.join("\n"), status: currentStatus });
+  }
+
+  return entries;
+}
+
 const project = Type.String({ description: "Indexed project name. Use cmem_list_projects first if unsure." });
 const optionalProject = Type.Optional(project);
 
@@ -302,16 +334,18 @@ export default function (pi: ExtensionAPI) {
   // We fix this at the wrapper layer:
   //   - mode="update": read existing content first, append new content, then store combined
   //   - mode="get" / mode="sections": pass through directly
+  //   - mode="active": parse content, return only Active entries
+  //   - mode="archive": change specified entries' status to Completed
   pi.registerTool({
     name: `${TOOL_PREFIX}manage_adr`,
     label: "Codebase Memory: Manage ADR",
-    description: "Create, get, update, or list Architecture Decision Record sections.",
-    promptSnippet: "Manage architecture decision records for an indexed project",
+    description: "Create, get, update, list, filter active, or archive Architecture Decision Record sections.",
+    promptSnippet: "Manage and filter architecture decision records (ADR) for an indexed project",
     promptGuidelines: [
       "Use cmem_list_projects to discover the correct project name before using other cmem_* tools when the project is unknown.",
       "Use cmem_search_graph for code definitions, relationships, callers, implementations, and architecture discovery before falling back to grep.",
     ],
-    parameters: Type.Object({ project, mode: Type.Optional(StringEnum(["get", "update", "sections"] as const)), content: Type.Optional(Type.String()), sections: Type.Optional(Type.Array(Type.String())) }),
+    parameters: Type.Object({ project, mode: Type.Optional(StringEnum(["get", "update", "sections", "active", "archive"] as const)), content: Type.Optional(Type.String()), sections: Type.Optional(Type.Array(Type.String())) }),
     async execute(_toolCallId, params, signal, onUpdate) {
       const p = params as { project: string; mode?: string; content?: string; sections?: string[] };
 
@@ -349,6 +383,83 @@ export default function (pi: ExtensionAPI) {
         return {
           content: [{ type: "text", text }],
           details: { tool: "manage_adr", command: COMMAND, raw: storeResult, appended: true, existing_length: existingContent.length, new_length: p.content.length },
+        };
+      }
+
+      // ── Active mode: return only entries with Status: Active ───────
+      if (p.mode === "active") {
+        onUpdate?.({ content: [{ type: "text", text: "Fetching active ADR entries..." }] });
+        const fullResult = await runCli("manage_adr", { project: p.project, mode: "get" }, signal, onUpdate);
+
+        if (fullResult.isError) throw new Error("Failed to read ADR");
+
+        let rawContent = "";
+        if (fullResult.content) {
+          const raw = fullResult.content.map(c => c.text).join("\n");
+          try { rawContent = JSON.parse(raw).content || raw; }
+          catch { rawContent = raw; }
+        }
+
+        const entries = parseAdrEntries(rawContent);
+        const active = entries.filter(e => e.status.toLowerCase() === "active");
+
+        if (active.length === 0) {
+          return { content: [{ type: "text", text: "No active ADR entries found." }] };
+        }
+
+        const markdown = active.map(e => `${e.header}\n${e.body}`).join("\n\n").trim();
+        return { content: [{ type: "text", text: markdown }], details: { tool: "manage_adr", command: COMMAND, total_entries: entries.length, active_entries: active.length } };
+      }
+
+      // ── Archive mode: mark matching entries as Completed ────────────
+      if (p.mode === "archive") {
+        if (!p.sections || p.sections.length === 0) {
+          throw new Error("archive mode requires a `sections` array with entry headers to archive (e.g. [\"2026-05-22 Astro File Extension Indexing Support\"])");
+        }
+
+        onUpdate?.({ content: [{ type: "text", text: "Archiving specified ADR entries..." }] });
+        const fullResult = await runCli("manage_adr", { project: p.project, mode: "get" }, signal, onUpdate);
+
+        if (fullResult.isError) throw new Error("Failed to read ADR");
+
+        let rawContent = "";
+        if (fullResult.content) {
+          const raw = fullResult.content.map(c => c.text).join("\n");
+          try { rawContent = JSON.parse(raw).content || raw; }
+          catch { rawContent = raw; }
+        }
+
+        const entries = parseAdrEntries(rawContent);
+        let archivedCount = 0;
+
+        const updated = entries.map(e => {
+          const match = (p.sections ?? []).some(s => e.header.includes(s));
+          if (match) {
+            archivedCount++;
+            const statusLine = e.body.match(/^-\s+\*\*Status:\*\*\s+.+$/m);
+            const newBody = statusLine
+              ? e.body.replace(/^(-\s+\*\*Status:\*\*\s+).+$/m, "$1Completed")
+              : "- **Status:** Completed\n" + e.body;
+            return { ...e, status: "Completed", body: newBody };
+          }
+          return e;
+        });
+
+        if (archivedCount === 0) {
+          throw new Error(`No matching ADR entries found. Available sections:\n${entries.map(e => e.header).join("\n")}`);
+        }
+
+        const markdown = updated.map(e => `${e.header}\n${e.body}`).join("\n\n").trim() + "\n";
+        const storeResult = await runCli("manage_adr", { project: p.project, mode: "update", content: markdown }, signal, onUpdate);
+        const text = truncateText(textFromResult(storeResult));
+
+        if (storeResult.isError) {
+          throw new Error(text || "manage_adr archive failed");
+        }
+
+        return {
+          content: [{ type: "text", text: `Archived ${archivedCount} entry/entries.` }],
+          details: { tool: "manage_adr", command: COMMAND, archived_count: archivedCount, total_entries: entries.length },
         };
       }
 
