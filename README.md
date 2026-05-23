@@ -1,13 +1,30 @@
 # pi-codebase-memory-mcp
 
-A [pi](https://github.com/earendil-works/pi-mono) package that exposes [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) as native pi tools.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![pi package](https://img.shields.io/badge/pi-package-%23FF6B6B)](https://github.com/earendil-works/pi-mono)
 
-This package has two parts:
+A [pi](https://github.com/earendil-works/pi-mono) package that bridges [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) into pi as native tools — with **live progress streaming**, **skill-based workflow enforcement**, and a **zero-waste code navigation protocol**.
 
-- **Extensions** — Register all `codebase-memory-mcp` tools with the `cmem_` prefix so pi can call them directly.
-- **Skills** — A codebase navigation protocol skill that enforces strict `cmem_*` tool usage and blocks fallback to grep/read.
+This package delivers two complementary components:
 
-You can use **extensions alone** (tools without workflow enforcement). The skill cannot work without the extensions — it only teaches the agent *how* to use the tools, it doesn't provide them. Install both for maximum benefit.
+- **Extensions** — Registers all `codebase-memory-mcp` tools with the `cmem_` prefix, making them available as native pi tool calls.
+- **Skills** — A codebase navigation protocol that enforces strict `cmem_*`-only tool usage, blocking fallback to grep, ripgrep, or full-file reads.
+
+> **Tip:** Extensions work standalone if you only want tools without workflow enforcement. Skills require extensions to function — they teach *how* to use tools, not *which* tools. Install both for the full experience.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Available tools](#available-tools)
+- [Recommended workflow](#recommended-workflow)
+- [Graph UI](#graph-ui)
+- [How it works](#how-it-works)
+- [Custom file extensions](#custom-file-extensions)
+- [Development](#development)
+- [License](#license)
 
 ## Features
 
