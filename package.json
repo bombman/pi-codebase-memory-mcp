@@ -15,7 +15,8 @@
   "homepage": "https://github.com/bombman/pi-codebase-memory-mcp#readme",
   "type": "module",
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": ["./extensions"],
+    "skills": ["./skills"]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

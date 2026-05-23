@@ -2,7 +2,12 @@
 
 A [pi](https://github.com/earendil-works/pi-mono) package that exposes [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) as native pi tools.
 
-This package is useful when you want pi to query a code knowledge graph for architecture discovery, symbol search, call tracing, graph queries, and code snippets.
+This package has two complementary parts:
+
+- **Extensions** — Register all `codebase-memory-mcp` tools with the `cmem_` prefix so pi can call them directly.
+- **Skills** — A codebase navigation protocol skill that enforces strict `cmem_*` tool usage and blocks fallback to grep/read.
+
+You can use **extensions alone** for tool access without workflow enforcement, or **both together** for maximum benefit.
 
 ## Features
 
@@ -11,6 +16,7 @@ This package is useful when you want pi to query a code knowledge graph for arch
 - No MCP client support is required in pi.
 - Can be installed globally, per project, from a local checkout, npm, or GitHub.
 - **Progress streaming** — Live pipeline progress shown in pi UI during long operations like `cmem_index_repository`.
+- **Skill integration** — Optional codebase navigation skill with strict `cmem_*` enforcement, quick commands (`/adr`, `/impact`, `/explain`), and zero-waste reporting.
 
 ## Requirements
 
@@ -28,7 +34,10 @@ export CODEBASE_MEMORY_MCP_COMMAND=/path/to/codebase-memory-mcp
 
 ## Installation
 
-### From a local checkout
+The package installs both **extensions** (tools) and **skills** (navigation protocol).
+You can use either one independently, or both together.
+
+### Full install (extensions + skills, recommended)
 
 ```bash
 git clone https://github.com/bombman/pi-codebase-memory-mcp.git
@@ -36,23 +45,39 @@ cd pi-codebase-memory-mcp
 pi install .
 ```
 
-### Project-local install
+After installing, restart pi or run `/reload`.
 
-Use this when you want only the current repository to load the package:
+### Extensions only (just the tools, no skill enforcement)
+
+The extensions register `cmem_*` tools. If you don't want the skill's strict workflow enforcement, install the package and ignore the skill, or install project-locally:
 
 ```bash
 pi install -l .
 ```
 
-### From GitHub
+You can also disable skills globally in pi settings:
 
-After publishing the repository:
+```json
+{
+  "noSkills": true
+}
+```
+
+### Skills only (without the extension package)
+
+If you only want the codebase navigation protocol without the `cmem_*` tools (e.g. using the MCP server directly), copy the skill to your project:
+
+```bash
+cp skills/pi-codebase-memory-skills.md /path/to/project/.pi/skills/
+```
+
+Or install from GitHub:
 
 ```bash
 pi install https://github.com/bombman/pi-codebase-memory-mcp
 ```
 
-Or pin a tag/commit:
+Then pin a tag/commit:
 
 ```bash
 pi install https://github.com/bombman/pi-codebase-memory-mcp@v0.1.0
@@ -84,11 +109,17 @@ Use codebase memory to show the architecture overview of project my-project.
 Use codebase memory to trace callers of function handleLogin in project my-project.
 ```
 
-There is also one slash command you can run directly:
+There are also slash commands you can run directly:
 
 ```text
-/cmem-projects
+/cmem-projects                     # List indexed projects
+/skill:pi-codebase-memory-skills   # Load the codebase navigation skill
 ```
+
+When the skill is loaded, it also provides:
+- `/adr [topic]` — Append an Architecture Decision Record entry
+- `/impact [target]` — Analyze blast radius if a symbol changes
+- `/explain [target]` — Explain a function/class logic
 
 ## Available tools
 
@@ -96,7 +127,7 @@ All tools are registered with the `cmem_` prefix:
 
 | Tool | Purpose |
 | --- | --- |
-| `cmem_index_repository` | Index a repository into the knowledge graph, including additional extensions such as `.astro` via `file_extensions`. |
+| `cmem_index_repository` | Index a repository into the knowledge graph. |
 | `cmem_search_graph` | Search indexed code definitions and relationships. |
 | `cmem_query_graph` | Run Cypher queries against the code knowledge graph. |
 | `cmem_trace_path` | Trace callers, callees, dependencies, impact, and data flow. |
@@ -112,6 +143,24 @@ All tools are registered with the `cmem_` prefix:
 | `cmem_ingest_traces` | Ingest runtime traces. |
 
 ## Recommended workflow
+
+### With skill (full enforcement)
+
+If the skill is loaded, the agent automatically follows the strict protocol:
+1. Always uses `cmem_search_graph` first for any code discovery.
+2. Uses `cmem_trace_path` before refactoring shared logic.
+3. Reads only relevant lines via `cmem_get_code_snippet` (no full-file reads).
+4. Uses `/adr` to document architectural decisions.
+
+Quick commands after indexing:
+```text
+/cmem-projects                       # List what's indexed
+/explain handleLogin                 # Explain a function
+/impact PaymentService               # Check blast radius
+/adr "Refactor auth"                  # Document a decision
+```
+
+### Without skill (tools only)
 
 1. Ask pi to call `cmem_list_projects` or run `/cmem-projects`.
 2. Use the returned project name in later questions.
