@@ -95,7 +95,7 @@ All tools are registered with the `cmem_` prefix:
 
 | Tool | Purpose |
 | --- | --- |
-| `cmem_index_repository` | Index a repository into the knowledge graph. |
+| `cmem_index_repository` | Index a repository into the knowledge graph, including additional extensions such as `.astro` via `file_extensions`. |
 | `cmem_search_graph` | Search indexed code definitions and relationships. |
 | `cmem_query_graph` | Run Cypher queries against the code knowledge graph. |
 | `cmem_trace_path` | Trace callers, callees, dependencies, impact, and data flow. |

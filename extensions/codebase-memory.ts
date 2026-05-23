@@ -111,6 +111,7 @@ const tools: ToolSpec[] = [
     parameters: Type.Object({
       repo_path: Type.String({ description: "Path to the repository" }),
       mode: Type.Optional(StringEnum(["full", "moderate", "fast"] as const, { description: "full: all passes. moderate: faster with semantic edges. fast: structure only." })),
+      file_extensions: Type.Optional(Type.Array(Type.String(), { description: "Additional file extensions to include during indexing, e.g. ['.astro']." })),
     }),
   },
   {
