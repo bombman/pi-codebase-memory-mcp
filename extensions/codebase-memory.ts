@@ -9,6 +9,7 @@ const TOOL_PREFIX = "cmem_";
 
 type ToolContent = { type: "text"; text: string };
 type CliResult = { content?: ToolContent[]; isError?: boolean; [key: string]: unknown };
+type UpdateCallback = (update: { content: ToolContent[] }) => void;
 
 type ToolSpec = {
   name: string;
@@ -54,6 +55,30 @@ function normalizeCliResult(stdout: string, stderr: string): CliResult {
   }
 }
 
+function progressFromStderr(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/level=(\w+)\s+msg=([^\s]+)(?:\s+(.+))?/);
+  if (!match) return null;
+
+  const [, level, msg, rest] = match;
+
+  // Skip noise
+  if (msg === "mem.init" || msg === "pipeline.err" || level === "debug") return null;
+
+  // Only show pipeline milestones + errors
+  if (!msg.startsWith("pipeline.") && level !== "error" && msg !== "pipeline.err") return null;
+
+  // Format key=value pairs nicely
+  const formatted = rest
+    ? " " + rest.replace(/(\w+)=(\d+)/g, (_, k: string, v: string) => `${k}=${Number(v).toLocaleString()}`)
+    : "";
+
+  const icon = level === "error" ? "❌" : "📡";
+  return `${icon} ${msg.replace("pipeline.", "")}${formatted}`;
+}
+
 function textFromResult(result: CliResult): string {
   const content = result.content ?? [];
   const text = content
@@ -67,7 +92,7 @@ function textFromResult(result: CliResult): string {
   }
 }
 
-function runCli(toolName: string, params: unknown, signal?: AbortSignal): Promise<CliResult> {
+function runCli(toolName: string, params: unknown, signal?: AbortSignal, onUpdate?: UpdateCallback): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(COMMAND, ["cli", toolName, JSON.stringify(params ?? {})], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -82,7 +107,16 @@ function runCli(toolName: string, params: unknown, signal?: AbortSignal): Promis
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+      const lines = chunk.toString().split(/\r?\n/);
+      for (const l of lines) {
+        const progress = progressFromStderr(l);
+        if (progress) {
+          onUpdate?.({ content: [{ type: "text", text: progress }] });
+        }
+      }
+    });
     child.on("error", (error) => {
       signal?.removeEventListener("abort", abort);
       reject(error);
@@ -255,7 +289,7 @@ export default function (pi: ExtensionAPI) {
       parameters: spec.parameters,
       async execute(_toolCallId, params, signal, onUpdate) {
         onUpdate?.({ content: [{ type: "text", text: `Running ${COMMAND} cli ${spec.name} ...` }] });
-        const result = await runCli(spec.name, params, signal);
+        const result = await runCli(spec.name, params, signal, onUpdate);
         const text = truncateText(textFromResult(result));
 
         if (result.isError) {
@@ -273,7 +307,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("cmem-projects", {
     description: "List codebase-memory-mcp indexed projects",
     handler: async (_args, ctx) => {
-      const result = await runCli("list_projects", {}, ctx.signal);
+      const result = await runCli("list_projects", {}, ctx.signal, ctx.hasUI ? (update) => ctx.ui.notify(update.content[0].text, "info") : undefined);
       const text = truncateText(textFromResult(result));
       if (ctx.hasUI) ctx.ui.notify(text, result.isError ? "error" : "info");
       else console.log(text);
