@@ -10,6 +10,8 @@ This package is useful when you want pi to query a code knowledge graph for arch
 - Works with the existing `codebase-memory-mcp cli <tool> <json>` interface.
 - No MCP client support is required in pi.
 - Can be installed globally, per project, from a local checkout, npm, or GitHub.
+- **Progress streaming** — Live pipeline progress shown in pi UI during long operations like `cmem_index_repository`.
+- **Custom file extensions** — `cmem_index_repository` accepts `file_extensions` parameter (e.g. `[".astro"]`) to index non-default source files.
 
 ## Requirements
 
